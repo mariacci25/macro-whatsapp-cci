@@ -16,10 +16,23 @@ const readData = (filePath) => {
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(worksheet);
-    const phoneNumbers = data
-        .map(row => `57${row['WhatsApp'].toString()}`);
-    const message = fs.readFileSync('mensaje.txt', 'utf8').trim();
-    return { phoneNumbers, message };
+
+    const baseMessage = fs.readFileSync('mensaje.txt', 'utf8').trim();
+
+    const recipientData = data.map(row => {
+        const phoneNumber = `57${row['WhatsApp'].toString()}`;
+
+        // Replace parameters in the message
+        let filledMessage = baseMessage;
+        const parameterRegex = /%([a-zA-Z0-9_]+)/g;
+        filledMessage = filledMessage.replace(parameterRegex, (match, paramName) => {
+            return row[paramName] !== undefined ? row[paramName].toString() : match;
+        });
+
+        return { phoneNumber, filledMessage };
+    });
+
+    return { baseMessage, recipientData };
 };
 
 
@@ -91,9 +104,15 @@ client.on('ready', async () => {
         process.exit(1);
     }
 
-    const { phoneNumbers, message } = readData(filePath);
-    console.log(`Se enviará el mensaje a ${phoneNumbers.length} telefonos.`);
-    console.log('Se va a enviar el mensaje:\n', message);
+    const { baseMessage, recipientData } = readData(filePath);
+    console.log(`Se enviará el mensaje a ${recipientData.length} telefonos.`);
+
+    const indent = '    ';
+    const blue = '\x1b[34m';
+    const reset = '\x1b[0m';
+    const indentedMessage = baseMessage.split('\n').map(line => indent + line).join('\n');
+    console.log('Se va a enviar el mensaje de base:');
+    console.log(`${blue}${indentedMessage}${reset}`);
 
     const enterToSend = () => {
         return new Promise(resolve => {
@@ -105,21 +124,20 @@ client.on('ready', async () => {
     };
 
     await enterToSend();
-    await sendMultitpleMessages(phoneNumbers, message);
+    await sendMultitpleMessages(recipientData);
 
     await client.destroy();
     // 
 
 });
 
-async function sendMultitpleMessages(phones, message) {
+async function sendMultitpleMessages(recipients) {
 
-    for (const num of phones) {
-        console.log(`Enviando a ${num}`);
-        const id = await client.getNumberId(num.toString());
-        console.log(id);
+    for (const { phoneNumber, filledMessage } of recipients) {
+        const id = await client.getNumberId(phoneNumber.toString());
+        console.log(`Enviando a ${phoneNumber} (${id._serialized})`);
         const chat = await client.getChatById(id._serialized);
-        await chat.sendMessage(message);
+        await chat.sendMessage(filledMessage);
         await new Promise(resolve => setTimeout(resolve, 500));
     }
 }
