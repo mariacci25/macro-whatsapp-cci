@@ -1,3 +1,6 @@
+> PARA LAS INSTRUCCIONES DE USO LEA EL SIGUIENTE [DOCUMENTO](./instrucciones.pdf)
+
+
 <div align="center">
     <br />
     <p>
