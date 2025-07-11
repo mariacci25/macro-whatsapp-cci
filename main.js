@@ -3,6 +3,10 @@ const xlsx = require('xlsx');
 const fs = require('fs');
 const readline = require('readline');
 
+const blue = '\x1b[34m';
+const reset = '\x1b[0m';
+const red = '\x1b[31m';
+
 readline.emitKeypressEvents(process.stdin);
 process.stdin.setRawMode(true);
 
@@ -108,8 +112,7 @@ client.on('ready', async () => {
     console.log(`Se enviará el mensaje a ${recipientData.length} telefonos.`);
 
     const indent = '    ';
-    const blue = '\x1b[34m';
-    const reset = '\x1b[0m';
+
     const indentedMessage = baseMessage.split('\n').map(line => indent + line).join('\n');
     console.log('Se va a enviar el mensaje de base:');
     console.log(`${blue}${indentedMessage}${reset}`);
@@ -132,9 +135,20 @@ client.on('ready', async () => {
 });
 
 async function sendMultitpleMessages(recipients) {
+    const failedNumbersFile = 'numeros_fallidos.csv';
+    if (!fs.existsSync(failedNumbersFile)) {
+        fs.writeFileSync(failedNumbersFile, 'Numero\n');
+    }
 
     for (const { phoneNumber, filledMessage } of recipients) {
         const id = await client.getNumberId(phoneNumber.toString());
+        if (!id) {
+            console.log(`${red}No se pudo obtener el ID para ${phoneNumber}.${reset}`);
+            // Save the phone number to a CSV file as a new line
+            fs.appendFileSync('numeros_fallidos.csv', `${phoneNumber}\n`);
+            continue;
+        }
+
         console.log(`Enviando a ${phoneNumber} (${id._serialized})`);
         const chat = await client.getChatById(id._serialized);
         await chat.sendMessage(filledMessage);
