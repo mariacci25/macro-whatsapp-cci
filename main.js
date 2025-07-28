@@ -140,6 +140,7 @@ async function sendMultitpleMessages(recipients) {
         fs.writeFileSync(failedNumbersFile, 'Numero\n');
     }
 
+    let count = 0;
     for (const { phoneNumber, filledMessage } of recipients) {
         const id = await client.getNumberId(phoneNumber.toString());
         if (!id) {
@@ -152,7 +153,14 @@ async function sendMultitpleMessages(recipients) {
         console.log(`Enviando a ${phoneNumber} (${id._serialized})`);
         const chat = await client.getChatById(id._serialized);
         await chat.sendMessage(filledMessage);
-        await new Promise(resolve => setTimeout(resolve, 500));
+        count++;
+
+        if (count % 50 === 0) {
+            // Wait 2 seconds after every 100 messages
+            await new Promise(resolve => setTimeout(resolve, 10000));
+        } else {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
     }
 }
 
